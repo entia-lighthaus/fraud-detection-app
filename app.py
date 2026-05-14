@@ -340,13 +340,13 @@ if page == "Transaction Checker":
 #  It also shows a bar chart of the top 20 feature importances derived from the trained LightGBM model, and provides a summary of the model's configuration and components used in the pipeline.
 # ─────────────────────────────────────────────────────────────
 
-elif page == " Model Performance":
+elif page == "Model Performance":
 
-    st.title(" Model Performance")
+    st.title("Model Performance")
     st.markdown(
-        "Key metrics from the test set evaluation. "
-        "All charts reflect the model trained in Google Colab."
-    )
+            "Key metrics from the test set evaluation. "
+            "All charts reflect the model trained in Google Colab."
+        )
     st.markdown("---")
 
 
@@ -369,7 +369,7 @@ elif page == " Model Performance":
 
     importances = booster.feature_importance()
     imp_df = pd.DataFrame({
-        "Feature":    feature_cols,
+        "Feature":    feature_cols + ["anomaly_score"],
         "Importance": importances
     }).sort_values("Importance", ascending=True).tail(20)
 
@@ -419,9 +419,9 @@ elif page == " Model Performance":
 #  The model will score each transaction, flag potential frauds, and return a downloadable CSV with the results.   
 # ─────────────────────────────────────────────────────────────
 
-elif page == " Batch Scanner":
+elif page == "Batch Scanner":
 
-    st.title(" Batch Transaction Scanner")
+    st.title("Batch Transaction Scanner")
     st.markdown(
         "Upload a CSV of transactions. The model will score every row "
         "and return a downloadable file with fraud flags and scores."
