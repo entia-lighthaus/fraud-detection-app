@@ -367,7 +367,7 @@ elif page == " Model Performance":
     # The importance values are derived from the model's built-in feature importance attribute, which indicates how much each feature contributed to the model's predictions.
     st.subheader("Feature Importance (from trained model)")
 
-    importances = model.feature_importances_
+    importances = booster.feature_importance()
     imp_df = pd.DataFrame({
         "Feature":    feature_cols,
         "Importance": importances
@@ -410,3 +410,125 @@ elif page == " Model Performance":
         | Isolation Forest | Anomaly score feature |
         | Threshold tuning | Best F1 decision boundary |
         """)
+
+
+
+# ─────────────────────────────────────────────────────────────
+#  PAGE 3 — BATCH SCANNER
+#  This page allows users to upload a CSV file containing multiple transactions. 
+#  The model will score each transaction, flag potential frauds, and return a downloadable CSV with the results.   
+# ─────────────────────────────────────────────────────────────
+
+elif page == " Batch Scanner":
+
+    st.title(" Batch Transaction Scanner")
+    st.markdown(
+        "Upload a CSV of transactions. The model will score every row "
+        "and return a downloadable file with fraud flags and scores."
+    )
+    st.markdown("---")
+
+    # ── Expected columns ──────────────────────────────────────
+    #    This section provides users with a clear reference of the expected columns and their formats for the CSV file they need to upload.
+    with st.expander(" Expected CSV columns"):
+        st.markdown("""
+        Your CSV must contain these columns:
+
+        | Column | Type | Example |
+        |---|---|---|
+        | amount | float | 5000.0 |
+        | hour | int 0–23 | 14 |
+        | dayofweek | int 0–6 | 2 |
+        | cross_border | 0 or 1 | 1 |
+        | ip_country_match | 0 or 1 | 0 |
+        | card_present | 0 or 1 | 0 |
+        | is_emulator | 0 or 1 | 0 |
+        | is_unknown_browser | 0 or 1 | 1 |
+        | is_new_device | 0 or 1 | 1 |
+        | device_shared_users | int | 5 |
+        | user_device_count | int | 2 |
+        | txn_count_1h | int | 3 |
+        | txn_count_24h | int | 7 |
+        | sum_24h | float | 15000.0 |
+        | avg_amount_7d | float | 3000.0 |
+        | time_since_last_txn | float (seconds) | 120 |
+        | amount_change_pct | float | 300.0 |
+        | merchant_category | string | online |
+        | ip_user_count | int | 4000 |
+        | merchant_txn_density_24h | int | 2000 |
+        | user_merchant_diversity | int 1–7 | 3 |
+        | device_fraud_neighbourhood | float 0–1 | 0.1 |
+        """)
+
+    uploaded = st.file_uploader("Upload CSV", type=["csv"])
+
+    if uploaded:
+        df_raw = pd.read_csv(uploaded)
+        st.markdown(f"**{len(df_raw):,} transactions uploaded**")
+        st.dataframe(df_raw.head(5), use_container_width=True)
+
+        with st.spinner("Scoring transactions..."):
+            results = []
+            for _, row in df_raw.iterrows():
+                txn             = row.to_dict()
+                txn["is_rapid_succession"] = int(
+                    float(txn.get("time_since_last_txn", 9999)) < 300
+                )
+                txn["is_first_txn"] = 0
+
+                X_raw          = build_features(txn)
+                X_imp = apply_medians(X_raw)
+                X_imp["anomaly_score"] = -iso_forest.decision_function(X_imp)[0]
+                feature_cols_final = feature_cols + ["anomaly_score"]
+                X_final        = X_imp[feature_cols_final]
+
+                score          = float(booster.predict(X_final)[0])
+                results.append(score)
+
+
+
+
+        df_raw["fraud_score"]  = results
+        df_raw["fraud_flag"]   = (df_raw["fraud_score"] >= threshold).astype(int)
+        df_raw["decision"]     = df_raw["fraud_flag"].map(
+            {1: " FRAUD", 0: " LEGIT"}
+        )
+
+        # ── Summary ───────────────────────────────────────────
+        st.markdown("---")
+        b1, b2, b3 = st.columns(3)
+        b1.metric("Total Scanned",  f"{len(df_raw):,}")
+        b2.metric("Flagged Fraud",  f"{df_raw['fraud_flag'].sum():,}")
+        b3.metric("Fraud Rate",
+                  f"{df_raw['fraud_flag'].mean()*100:.2f}%")
+
+        # Score distribution
+        fig_dist = px.histogram(
+            df_raw, x="fraud_score", nbins=60,
+            color_discrete_sequence=["#F44336"],
+            title="Fraud Score Distribution"
+        )
+        fig_dist.add_vline(
+            x=threshold, line_dash="dash",
+            line_color="black",
+            annotation_text=f"Threshold ({threshold:.3f})"
+        )
+        st.plotly_chart(fig_dist, use_container_width=True)
+
+        # Results table
+        st.dataframe(
+            df_raw[["fraud_score","fraud_flag","decision"]
+                   + list(df_raw.columns[:-3])
+            ].sort_values("fraud_score", ascending=False),
+            use_container_width=True
+        )
+
+        # Download
+        csv = df_raw.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "⬇ Download Results CSV",
+            csv,
+            "fraud_results.csv",
+            "text/csv",
+            use_container_width=True
+        )
