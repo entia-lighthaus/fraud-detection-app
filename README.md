@@ -281,7 +281,7 @@ This score is then injected as feature #36 into LightGBM. The supervised model d
 
 **Why this matters:** LightGBM can only learn fraud patterns that exist in the training labels. If a new type of fraud emerges after training, it may not match any known pattern — but it will likely still look statistically unusual. Isolation Forest catches these novel patterns and surfaces them to LightGBM as a "something looks wrong here" signal.
 
-In our trained model, `anomaly_score` ranked as the **#1 most important feature** by LightGBM's feature importance metric — validating the hybrid approach.
+In our trained model, `anomaly_score` ranked as the **#4 most important feature** by LightGBM's feature importance metric — validating the hybrid approach.
 
 ---
 
@@ -369,10 +369,10 @@ device_fraud_neigh = 0.13 → +0.79  ↑ toward fraud
 is_unknown_browser = 0    → -0.67  ↓ toward legit
 ip_user_count      = 4347 → +0.62  ↑ toward fraud
 
-Final score: 0.9323 → BLOCK
+Final score: 0.9323 → BLOCK TRANSACTION
 ```
 
-In plain English: *"A card-not-present online transaction, cross-border, with a foreign IP routing through shared infrastructure used by 4,347 other accounts, on a device with a 13% fraud history."*
+In plain English: *"A card-not-present online transaction, cross-border, with a foreign IP routing through shared infrastructure used by 4,347 other accounts, on a device with a 13% fraud history is FRAUD."*
 
 ---
 
